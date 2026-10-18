@@ -6,13 +6,14 @@ import base64
 
 app = FastAPI()
 
-# CORS is fully enabled
+# FIXED: Explicitly exposing the Retry-After header to the browser
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After", "*"] 
 )
 
 # Assigned values
@@ -24,7 +25,7 @@ ORDERS_DB = [{"id": i} for i in range(1, TOTAL_ORDERS + 1)]
 idempotency_store = {}
 client_requests = {}
 
-# 1. Spam Blocker (Now safely built as a Dependency to preserve CORS)
+# 1. Spam Blocker
 def check_rate_limit(x_client_id: str = Header(None)):
     if x_client_id:
         now = time.time()
@@ -33,7 +34,7 @@ def check_rate_limit(x_client_id: str = Header(None)):
         history = [t for t in history if now - t < RATE_WINDOW_SECONDS]
         
         if len(history) >= RATE_LIMIT:
-            # Safely raise an exception so FastAPI keeps the CORS headers
+            # Safely raise an exception with the Retry-After header
             raise HTTPException(
                 status_code=429,
                 detail="Too Many Requests",
@@ -43,7 +44,7 @@ def check_rate_limit(x_client_id: str = Header(None)):
         history.append(now)
         client_requests[x_client_id] = history
 
-# 2. Double-Charge Protection (Pass the spam blocker into 'dependencies')
+# 2. Double-Charge Protection
 @app.post("/orders", status_code=201, dependencies=[Depends(check_rate_limit)])
 async def create_order(idempotency_key: str = Header(None)):
     if idempotency_key and idempotency_key in idempotency_store:
@@ -55,7 +56,7 @@ async def create_order(idempotency_key: str = Header(None)):
         
     return {"id": new_id}
 
-# 3. Page Flipping (Pass the spam blocker into 'dependencies')
+# 3. Page Flipping
 @app.get("/orders", dependencies=[Depends(check_rate_limit)])
 async def get_orders(limit: int = 10, cursor: str = None):
     start_idx = 0
