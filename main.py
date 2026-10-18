@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Header, Response
+from fastapi import FastAPI, Request, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import time
@@ -7,11 +7,11 @@ import base64
 
 app = FastAPI()
 
-# Enable CORS so the grader browser can test it directly
+# FIXED: allow_credentials is now False, which stops the app from crashing
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False, 
     allow_methods=["*"],
     allow_headers=["*"],
 )
